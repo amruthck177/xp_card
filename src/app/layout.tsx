@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import UniverseBackground from "@/components/UniverseBackground";
+import AICompanion from "@/components/AICompanion";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -24,6 +25,7 @@ export default function RootLayout({
         <main className="relative pt-24 px-6 pb-20">
           {children}
         </main>
+        <AICompanion />
       </body>
     </html>
   );
