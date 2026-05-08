@@ -11,7 +11,7 @@ import Link from 'next/link';
 
 const modules = [
   { id: 'learning', title: 'AI Learning Paths', icon: <Brain />, color: 'from-blue-500 to-cyan-400', desc: 'Personalized roadmap with daily missions.' },
-  { id: 'debug', title: 'Debugging Arena', icon: <Bug />, color: 'from-red-500 to-orange-400', desc: 'Master the art of bug hunting across 5 levels.', new: true },
+  { id: 'debugging', title: 'Debugging Arena', icon: <Bug />, color: 'from-red-500 to-orange-400', desc: 'Master the art of bug hunting across 5 levels.', new: true },
   { id: 'battles', title: 'Coding Battles', icon: <Zap />, color: 'from-yellow-400 to-orange-500', desc: '1v1, Team, and AI Boss battles.' },
   { id: 'aptitude', title: 'Aptitude & Interview', icon: <Sparkles />, color: 'from-purple-500 to-pink-500', desc: 'Quant, Logic, and AI Mock Interviews.', new: true },
   { id: 'social', title: 'Social Network', icon: <Users />, color: 'from-green-400 to-emerald-600', desc: 'Connect, share, and collaborate.' },
