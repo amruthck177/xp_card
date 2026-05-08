@@ -47,13 +47,17 @@ export default function Home() {
           </p>
           
           <div className="flex flex-wrap items-center justify-center gap-4">
-            <button className="px-8 py-4 bg-white text-black font-bold rounded-2xl hover:scale-105 transition-transform flex items-center gap-2">
-              <Play className="w-5 h-5 fill-current" />
-              START YOUR JOURNEY
-            </button>
-            <button className="px-8 py-4 glass text-white font-bold rounded-2xl hover:bg-white/10 transition-colors border-white/20">
-              EXPLORE DEV CITY
-            </button>
+            <Link href="/learning">
+              <button className="px-8 py-4 bg-white text-black font-bold rounded-2xl hover:scale-105 transition-transform flex items-center gap-2">
+                <Play className="w-5 h-5 fill-current" />
+                START YOUR JOURNEY
+              </button>
+            </Link>
+            <Link href="/city">
+              <button className="px-8 py-4 glass text-white font-bold rounded-2xl hover:bg-white/10 transition-colors border-white/20">
+                EXPLORE DEV CITY
+              </button>
+            </Link>
           </div>
         </motion.div>
 

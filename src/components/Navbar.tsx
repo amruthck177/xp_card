@@ -21,6 +21,8 @@ const Navbar = () => {
         <div className="hidden md:flex items-center gap-8">
           <NavLink icon={<Brain className="w-4 h-4" />} label="Learning" href="/learning" />
           <NavLink icon={<Bug className="w-4 h-4" />} label="Debug Arena" href="/debugging" />
+          <NavLink icon={<Globe className="w-4 h-4" />} label="Dev City" href="/city" />
+          <NavLink icon={<Code className="w-4 h-4" />} label="Projects" href="/projects" />
           <NavLink icon={<Zap className="w-4 h-4" />} label="Battles" href="/battles" />
           <NavLink icon={<Users className="w-4 h-4" />} label="Social" href="/social" />
           <NavLink icon={<Briefcase className="w-4 h-4" />} label="Career" href="/career" />
