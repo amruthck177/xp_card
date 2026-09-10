@@ -3,11 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>XP & Streak Engine</title>
-  <!-- Load Fonts from Google CDN: Syne (Headings) and JetBrains Mono (Code/Stats) -->
+  <title>XP & Streak Engine v2.0</title>
+  <!-- Load Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Syne:wght@600;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=Syne:wght@600;700;800&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+  <!-- html2canvas for 1-Click High-Res Card Image Export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <!-- Socket.io Client for Real-Time Sync -->
+  <script src="/socket.io/socket.io.js"></script>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body class="theme-deep-space">
@@ -15,174 +19,315 @@
   <!-- Interactive Audio/System Overlay for Autoplay Bypass -->
   <div id="audio-bypass-overlay" class="overlay">
     <div class="overlay-card">
-      <h2>XP & STREAK SYSTEM</h2>
-      <p>Initialize Web Audio, physics, and haptic synchronization engines.</p>
-      <button id="btn-init-system" class="glow-button">ACTIVATE SYSTEM</button>
+      <div class="quantum-orb"></div>
+      <h2>XP & STREAK SYSTEM v2.0</h2>
+      <p>Quantum Core: Initialize Web Audio Synthesis, Real-Time WebSockets, 3D Tilt Physics & Gyroscope Haptics.</p>
+      <button id="btn-init-system" class="glow-button">ENGAGE QUANTUM CORE</button>
     </div>
   </div>
 
   <!-- Screen Flash for warp speeds & explosions -->
   <div id="screen-flash" class="screen-flash"></div>
 
-  <!-- Starfield & Particle Canvas for Cursor & Warp effects -->
+  <!-- Particle Canvas for Starfield, Cursor Physics & Shockwaves -->
   <canvas id="particle-canvas"></canvas>
 
   <div class="dashboard-container">
     
-    <!-- Floating Theme Switcher Toggle -->
-    <div class="theme-switcher">
-      <button class="theme-btn active" data-theme="deep-space" title="Deep Space">🌌 Space</button>
-      <button class="theme-btn" data-theme="cyberpunk" title="Cyberpunk">⚡ Cyber</button>
-      <button class="theme-btn" data-theme="solar-flare" title="Solar Flare">☀️ Solar</button>
-    </div>
+    <!-- Top Action & Telemetry Navigation Bar -->
+    <nav class="top-nav-bar glass-panel">
+      <div class="nav-brand">
+        <span class="pulse-indicator"></span>
+        <span class="brand-title">STREAK SYSTEM</span>
+        <span class="version-tag">QUANTUM v2.0</span>
+      </div>
 
-    <!-- Header Section -->
-    <header class="dashboard-header">
-      <h1 class="glow-text">STREAK SYSTEM</h1>
-      <p class="subtitle">PROTOTYPE ENGINE V1.0</p>
-    </header>
+      <div class="nav-stats">
+        <div class="nav-crystal-badge" id="crystal-container">
+          <span class="crystal-icon">💎</span>
+          <span id="nav-crystal-count" class="crystal-val">0</span>
+          <span class="currency-label">CRYSTALS</span>
+        </div>
+      </div>
+
+      <div class="nav-actions">
+        <button id="btn-open-synth" class="nav-tool-btn" title="Audio Synthesizer Studio">🎛️ SYNTH RACK</button>
+        <button id="btn-open-leaderboard" class="nav-tool-btn" title="Global Leaderboard">🏆 RANKINGS</button>
+        <button id="btn-open-shop" class="nav-tool-btn" title="Cosmetic Vault & Shop">🛍️ VAULT</button>
+        <button id="btn-export-card" class="nav-tool-btn highlight" title="Export Card as PNG">📸 EXPORT</button>
+      </div>
+
+      <!-- Theme Switcher -->
+      <div class="theme-switcher">
+        <button class="theme-btn active" data-theme="deep-space" title="Deep Space">🌌 Space</button>
+        <button class="theme-btn" data-theme="cyberpunk" title="Cyberpunk">⚡ Cyber</button>
+        <button class="theme-btn" data-theme="solar-flare" title="Solar Flare">☀️ Solar</button>
+      </div>
+    </nav>
 
     <!-- Main Workspace Grid -->
     <div class="dashboard-grid">
 
-      <!-- LEFT COLUMN: The Interactive Game Cards -->
+      <!-- LEFT COLUMN: The Interactive 3D Game Cards & Heatmap -->
       <section class="card-column">
         
-        <!-- MAIN CARD -->
-        <div id="main-user-card" class="streak-card main-card">
-          <!-- Steam smoke container for Power Hour -->
-          <div id="steam-container" class="steam-container"></div>
-          
-          <!-- Gloss Reflection Layer mapping to tilt offsets -->
-          <div class="card-glare"></div>
-          <div class="contribution-overlay" id="contrib-overlay"></div>
-
-          <!-- Level Badge (Upper Left) -->
-          <div class="card-level-tag">
-            <span class="level-label">LEVEL</span>
-            <span id="txt-user-level" class="level-value">0</span>
-          </div>
-
-          <!-- Power Hour Tag (Upper Right) -->
-          <div id="tag-power-hour" class="power-hour-tag hidden">
-            <span>🔥 POWER HOUR 1.5X</span>
-          </div>
-
-          <!-- Danger Glitch Overlay -->
-          <div class="danger-glitch-overlay"></div>
-
-          <!-- Card Content Body -->
-          <div class="card-header">
-            <h3 id="txt-username" class="username">LOADING...</h3>
-            <span class="badge-count" id="txt-badge-count">0 Badges</span>
-          </div>
-
-          <!-- Streak Display Area -->
-          <div class="streak-score-container">
-            <div class="streak-counter-wrapper">
-              <div id="streak-shatter-container" class="shatter-animation-container"></div>
-              <div id="txt-current-streak" class="streak-number">0</div>
-              <div class="streak-label">DAY STREAK</div>
-            </div>
+        <!-- WRAPPER FOR EXPORT CAPTURE -->
+        <div id="card-export-wrapper" class="card-export-wrapper">
+          <!-- MAIN 3D USER CARD -->
+          <div id="main-user-card" class="streak-card main-card frame-electric">
+            <!-- Steam smoke container for Power Hour -->
+            <div id="steam-container" class="steam-container"></div>
             
-            <!-- Shields Tracker -->
-            <div class="shields-tracker">
-              <div class="shield-title">SHIELDS</div>
-              <div id="shield-indicators-wrapper" class="shield-slots">
-                <!-- Injected dynamically by JS -->
+            <!-- Gloss Reflection Layer mapping to tilt offsets -->
+            <div class="card-glare"></div>
+            <div class="contribution-overlay" id="contrib-overlay"></div>
+
+            <!-- Card Frame FX Overlays -->
+            <div class="frame-fx-layer"></div>
+
+            <!-- Level & Title Tag Header -->
+            <div class="card-top-row">
+              <div class="card-level-tag">
+                <span class="level-label">LEVEL</span>
+                <span id="txt-user-level" class="level-value">1</span>
+              </div>
+
+              <!-- Player Title Badge -->
+              <div class="player-title-badge">
+                <span id="txt-player-title">Cyber Pioneer</span>
+              </div>
+
+              <!-- Power Hour Tag -->
+              <div id="tag-power-hour" class="power-hour-tag hidden">
+                <span>🔥 POWER HOUR 1.5X</span>
               </div>
             </div>
-          </div>
 
-          <!-- Progress Bar Section -->
-          <div class="xp-progress-section">
-            <div class="xp-values-header">
-              <span>XP PROGRESS</span>
-              <span id="txt-xp-ratio">0 / 1000</span>
-            </div>
-            <div class="progress-bar-track">
-              <div id="bar-xp-progress" class="progress-bar-fill" style="width: 0%"></div>
-            </div>
-            <div class="longest-streak-footer">
-              <span>LONGEST STREAK: <strong id="txt-longest-streak">0</strong> DAYS</span>
-            </div>
-          </div>
+            <!-- Danger Glitch Overlay -->
+            <div class="danger-glitch-overlay"></div>
 
-          <!-- Holographic & Regular Badges -->
-          <div class="badges-showcase">
-            <h4>BADGES COLLECTED</h4>
-            <div id="badge-grid" class="badge-grid">
-              <!-- Badges injected dynamically -->
+            <!-- Card Content Body -->
+            <div class="card-header">
+              <h3 id="txt-username" class="username">LOADING...</h3>
+              <span class="badge-count" id="txt-badge-count">0 Badges</span>
+            </div>
+
+            <!-- Streak Display Area -->
+            <div class="streak-score-container">
+              <div class="streak-counter-wrapper">
+                <div id="streak-shatter-container" class="shatter-animation-container"></div>
+                <div id="txt-current-streak" class="streak-number">0</div>
+                <div class="streak-label">DAY STREAK</div>
+              </div>
+              
+              <!-- Shields Tracker -->
+              <div class="shields-tracker">
+                <div class="shield-title">SHIELDS</div>
+                <div id="shield-indicators-wrapper" class="shield-slots">
+                  <!-- Dynamic shields -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Streak Active Buffs Bar -->
+            <div class="streak-buffs-bar">
+              <div class="buff-item" id="buff-momentum" title="Unlocked at 7-day streak (+10% XP)">
+                <span class="buff-icon">⚡</span>
+                <span class="buff-text">7D MOMENTUM (+10%)</span>
+              </div>
+              <div class="buff-item" id="buff-hyperdrive" title="Unlocked at 30-day streak (1.25x Multiplier)">
+                <span class="buff-icon">🚀</span>
+                <span class="buff-text">30D HYPERDRIVE (1.25x)</span>
+              </div>
+            </div>
+
+            <!-- Progress Bar Section -->
+            <div class="xp-progress-section">
+              <div class="xp-values-header">
+                <span>XP PROGRESSION</span>
+                <span id="txt-xp-ratio">0 / 1000</span>
+              </div>
+              <div class="progress-bar-track">
+                <div id="bar-xp-progress" class="progress-bar-fill" style="width: 0%"></div>
+              </div>
+              <div class="longest-streak-footer">
+                <span>LONGEST STREAK: <strong id="txt-longest-streak">0</strong> DAYS</span>
+                <span class="rate-indicator" id="txt-multiplier-badge">1.0x SPEED</span>
+              </div>
+            </div>
+
+            <!-- Holographic & Regular Badges -->
+            <div class="badges-showcase">
+              <div class="badges-title-row">
+                <h4>ACHIEVEMENT BADGES</h4>
+                <span class="holographic-hint">✨ 3D Floating Depth</span>
+              </div>
+              <div id="badge-grid" class="badge-grid">
+                <!-- Badges injected dynamically -->
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- CO-OP PARTNER CARD (Smaller visual anchor linked by Curve) -->
-        <div id="partner-user-card" class="streak-card partner-card hidden">
+        <!-- CO-OP PARTNER CARD (Linked by Animated SVG Tether) -->
+        <div id="partner-user-card" class="streak-card partner-card">
           <div class="card-glare"></div>
           <div class="partner-header">
             <div>
               <div class="partner-avatar">🤝</div>
               <h3 id="txt-partner-username" class="username">PARTNER</h3>
+              <div class="partner-title" id="txt-partner-title">Quantum Sorcerer</div>
             </div>
             <div class="partner-lvl">LVL <span id="txt-partner-level">0</span></div>
           </div>
           <div class="partner-streak-box">
             <div class="partner-streak-num" id="txt-partner-streak">0</div>
-            <div>STREAK</div>
+            <div class="partner-streak-lbl">DAY STREAK</div>
           </div>
-          <div id="partner-status-tag" class="partner-status">ACTIVE</div>
+          <div class="partner-bottom-row">
+            <div id="partner-status-tag" class="partner-status">ACTIVE</div>
+            <button id="btn-quick-cheer" class="cheer-btn" title="Send Real-time High Five">🙌 HIGH-FIVE</button>
+          </div>
+        </div>
+
+        <!-- 60-DAY ACTIVITY HEATMAP MATRIX -->
+        <div class="heatmap-panel glass-panel">
+          <div class="heatmap-header">
+            <div class="heatmap-title">
+              <span class="heatmap-icon">📅</span>
+              <h4>ACTIVITY MATRIX (LAST 60 DAYS)</h4>
+            </div>
+            <div class="heatmap-legend">
+              <span class="legend-lbl">Less</span>
+              <span class="legend-cell lvl-0"></span>
+              <span class="legend-cell lvl-1"></span>
+              <span class="legend-cell lvl-2"></span>
+              <span class="legend-cell lvl-3"></span>
+              <span class="legend-cell lvl-4"></span>
+              <span class="legend-lbl">More XP</span>
+            </div>
+          </div>
+          <div id="heatmap-grid" class="heatmap-grid">
+            <!-- 60 Cells populated dynamically -->
+          </div>
+          <div class="heatmap-tooltip" id="heatmap-tooltip">Hover over a node</div>
         </div>
 
       </section>
 
-      <!-- RIGHT COLUMN: Control / Simulators Panel -->
+      <!-- RIGHT COLUMN: Quests, Boss Arena, Simulator & Controls -->
       <section class="control-column">
+
+        <!-- DAILY QUESTS & CHALLENGES PANEL -->
+        <div class="quests-card glass-panel">
+          <div class="section-title-row">
+            <div class="title-with-icon">
+              <span class="sec-icon">🎯</span>
+              <h3>DAILY PROTOCOLS</h3>
+            </div>
+            <span class="resets-tag">RESETS IN 04:12:30</span>
+          </div>
+          <p class="panel-desc">Execute daily directives to accumulate Crystals and bonus XP.</p>
+
+          <div id="quests-list" class="quests-list">
+            <!-- Quests injected dynamically -->
+          </div>
+        </div>
+
+        <!-- CO-OP RAID BOSS ARENA: CHRONOS -->
+        <div class="boss-arena-card glass-panel">
+          <div class="boss-header">
+            <div class="boss-identity">
+              <div class="boss-avatar-wrapper">
+                <span class="boss-avatar">👹</span>
+                <span class="boss-glitch-ring"></span>
+              </div>
+              <div>
+                <h4 id="boss-name" class="boss-title">Chronos the Streak Devourer</h4>
+                <span class="boss-tier" id="boss-tier">Cosmic Beast • Rank IV</span>
+              </div>
+            </div>
+            <div class="boss-bounty">
+              <span class="bounty-label">BOUNTY</span>
+              <span class="bounty-reward">👑 Badge + 200 💎</span>
+            </div>
+          </div>
+
+          <!-- Boss HP Bar -->
+          <div class="boss-health-section">
+            <div class="boss-hp-labels">
+              <span>INTEGRITY</span>
+              <span id="boss-hp-ratio">3,250 / 5,000 HP</span>
+            </div>
+            <div class="boss-hp-track">
+              <div id="boss-hp-fill" class="boss-hp-fill" style="width: 65%;"></div>
+            </div>
+          </div>
+
+          <div class="boss-action-row">
+            <button id="btn-attack-boss" class="boss-attack-btn">
+              <span class="attack-icon">⚔️</span>
+              <span>STRIKE RAID BOSS (+XP & 💎)</span>
+            </button>
+            <div id="boss-damage-feed" class="boss-feed-badge">Joint Co-Op Raid Active</div>
+          </div>
+        </div>
+
+        <!-- ENGINE CONTROL & SIMULATION UNIT -->
         <div class="control-card glass-panel">
-          <h3>ENGINE CONTROL UNIT</h3>
-          <p class="panel-desc">Simulate game actions, backend updates, and milestone bursts.</p>
+          <div class="section-title-row">
+            <div class="title-with-icon">
+              <span class="sec-icon">⚙️</span>
+              <h3>ENGINE CONTROL UNIT</h3>
+            </div>
+            <span class="live-tag">REAL-TIME</span>
+          </div>
+          <p class="panel-desc">Simulate game telemetry, network events, and streak milestones.</p>
           
           <div class="control-group">
             <h4>Primary Operations</h4>
-            <button id="btn-perform-activity" class="control-btn primary">🏋️ Log Activity (+100 Base XP)</button>
-            <button id="btn-revive-partner" class="control-btn accent">❤️ Revive Partner (-500 XP)</button>
+            <div class="btn-grid-2">
+              <button id="btn-perform-activity" class="control-btn primary">🏋️ Log Activity (+XP)</button>
+              <button id="btn-revive-partner" class="control-btn accent">❤️ Revive Partner (-500 XP)</button>
+            </div>
           </div>
 
           <div class="control-group">
-            <h4>Simulation Triggers</h4>
+            <h4>Telemetry Toggles</h4>
             <div class="toggle-row">
-              <label>Power Hour (1.5x XP & Steam)</label>
+              <label>Power Hour (1.5x Multiplier & Steam)</label>
               <input type="checkbox" id="sim-power-hour" class="switch-toggle">
             </div>
             <div class="toggle-row">
-              <label>Danger State (&lt; 2h Left / Glitch)</label>
+              <label>Danger State (&lt; 2h Left Glitch)</label>
               <input type="checkbox" id="sim-danger-state" class="switch-toggle">
             </div>
             <button id="btn-sim-miss" class="control-btn warning">⚠️ Simulate Missed Day (Spend Shield)</button>
           </div>
 
           <div class="control-group">
-            <h4>Visual Milestone Showcase</h4>
+            <h4>Milestone Visualizations</h4>
             <div class="button-row">
-              <button id="btn-burst-7" class="control-btn milestone-btn">🌌 7-Day Antigravity Burst</button>
+              <button id="btn-burst-7" class="control-btn milestone-btn">🌌 7-Day Antigravity</button>
               <button id="btn-burst-30" class="control-btn milestone-btn">🚀 30-Day Warp Speed</button>
             </div>
           </div>
 
           <div class="control-group font-mono">
-            <h4>API System Logs</h4>
+            <h4>System Telemetry & Real-Time Logs</h4>
             <div id="system-logs" class="logs-window">
-              <div class="log-line system">[SYSTEM] Ready. Activate interface to begin telemetry.</div>
+              <div class="log-line system">[SYSTEM] Core initialized. Real-time WebSockets operational.</div>
             </div>
             <button id="btn-seed-db" class="control-btn secondary-btn">🔄 Reset & Re-Seed Database</button>
           </div>
         </div>
+
       </section>
 
     </div>
   </div>
 
-  <!-- SVG Overlay for Co-op Tether Curve -->
+  <!-- SVG OVERLAY FOR CO-OP TETHER CURVE -->
   <svg id="tether-svg" class="tether-svg">
     <defs>
       <linearGradient id="tether-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -200,6 +345,138 @@
     <path id="tether-curve" d="" fill="none" stroke="url(#tether-gradient)" stroke-width="4" filter="url(#tether-glow)" stroke-dasharray="10 6" class="animated-tether-path" />
   </svg>
 
+  <!-- ==================== MODALS ==================== -->
+
+  <!-- 1. AUDIO SYNTHESIZER STUDIO MODAL -->
+  <div id="modal-synth" class="modal-backdrop hidden">
+    <div class="modal-window glass-panel synth-studio">
+      <div class="modal-header">
+        <div class="title-with-icon">
+          <span class="sec-icon">🎛️</span>
+          <h3>QUANTUM AUDIO SYNTHESIZER STUDIO</h3>
+        </div>
+        <button class="modal-close-btn" data-close="modal-synth">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="modal-desc">Shape the spatial Web Audio oscillators, resonance filters, and haptic frequency sweeps.</p>
+        
+        <!-- Live Waveform Oscilloscope Canvas -->
+        <div class="oscilloscope-container">
+          <canvas id="synth-scope-canvas" width="560" height="120"></canvas>
+        </div>
+
+        <div class="synth-controls-grid">
+          <div class="synth-control-card">
+            <label>Waveform Type</label>
+            <div class="waveform-selectors">
+              <button class="wave-btn active" data-wave="sine">Sine</button>
+              <button class="wave-btn" data-wave="triangle">Triangle</button>
+              <button class="wave-btn" data-wave="sawtooth">Sawtooth</button>
+              <button class="wave-btn" data-wave="square">Square</button>
+            </div>
+          </div>
+
+          <div class="synth-control-card">
+            <div class="slider-header">
+              <label>Filter Cutoff</label>
+              <span id="val-filter-cutoff">350 Hz</span>
+            </div>
+            <input type="range" id="slider-filter-cutoff" min="100" max="2500" value="350" class="synth-slider">
+          </div>
+
+          <div class="synth-control-card">
+            <div class="slider-header">
+              <label>Filter Resonance (Q)</label>
+              <span id="val-filter-q">4.0</span>
+            </div>
+            <input type="range" id="slider-filter-q" min="0.5" max="15.0" step="0.5" value="4.0" class="synth-slider">
+          </div>
+
+          <div class="synth-control-card">
+            <div class="slider-header">
+              <label>Ambient Space Drone</label>
+              <span id="val-drone-vol">65%</span>
+            </div>
+            <input type="range" id="slider-drone-vol" min="0" max="100" value="65" class="synth-slider">
+          </div>
+        </div>
+
+        <div class="synth-footer-actions">
+          <button id="btn-test-synth-chord" class="glow-button">🔊 TEST HARMONIC CHORD</button>
+          <button class="modal-action-btn" data-close="modal-synth">CLOSE STUDIO</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. GLOBAL LEADERBOARD MODAL -->
+  <div id="modal-leaderboard" class="modal-backdrop hidden">
+    <div class="modal-window glass-panel leaderboard-modal">
+      <div class="modal-header">
+        <div class="title-with-icon">
+          <span class="sec-icon">🏆</span>
+          <h3>COSMIC STREAK LEADERBOARDS</h3>
+        </div>
+        <button class="modal-close-btn" data-close="modal-leaderboard">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="leaderboard-tier-tabs">
+          <button class="tier-tab active" data-tier="all">ALL TIERS</button>
+          <button class="tier-tab" data-tier="Cosmic">🌌 COSMIC</button>
+          <button class="tier-tab" data-tier="Diamond">💎 DIAMOND</button>
+          <button class="tier-tab" data-tier="Gold">🥇 GOLD</button>
+        </div>
+
+        <div class="leaderboard-table-container">
+          <table class="leaderboard-table">
+            <thead>
+              <tr>
+                <th>RANK</th>
+                <th>PIONEER</th>
+                <th>TIER</th>
+                <th>LEVEL</th>
+                <th>STREAK</th>
+                <th>XP SCORE</th>
+              </tr>
+            </thead>
+            <tbody id="leaderboard-tbody">
+              <!-- Loaded dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. COSMETICS & REWARDS VAULT (SHOP) MODAL -->
+  <div id="modal-shop" class="modal-backdrop hidden">
+    <div class="modal-window glass-panel shop-modal">
+      <div class="modal-header">
+        <div class="title-with-icon">
+          <span class="sec-icon">🛍️</span>
+          <h3>COSMETIC VAULT & REWARDS SHOP</h3>
+        </div>
+        <div class="modal-crystal-balance">
+          <span>BALANCE: </span>
+          <span class="crystal-icon">💎</span>
+          <strong id="shop-modal-crystals">0</strong>
+        </div>
+        <button class="modal-close-btn" data-close="modal-shop">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="modal-desc">Redeem your hard-earned Streak Crystals for dynamic animated card frames, titles, and emergency shields.</p>
+
+        <div class="shop-grid" id="shop-items-grid">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Application Script -->
   <script src="app.js"></script>
 </body>
 </html>

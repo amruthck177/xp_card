@@ -1,5 +1,15 @@
 /* ==========================================================================
-   STATE & TELEMETRY REGISTRY
+   XP & STREAK CARD SYSTEM v2.0 - CORE ENGINE
+   Features:
+   - Web Audio Modular Synthesis & Live Oscilloscope
+   - Socket.io Real-Time Multiplayer Tether Shockwaves & Boss Raids
+   - 3D Tilt Parallax & Mobile Gyroscope Accelerometer
+   - Particle Physics Canvas & Hyperdrive Warp Engine
+   - 60-Day Activity Heatmap Matrix
+   - Daily Quests & Challenges Engine
+   - Co-Op Raid Boss Arena ("Chronos the Streak Devourer")
+   - Cosmetic Vault & Animated Frames Customizer
+   - Tiered Global Leaderboards & 1-Click Card PNG Exporter
    ========================================================================== */
 
 let activeUserId = null;
@@ -23,7 +33,13 @@ let spaceHumGain = null;
 let spaceHumFilter = null;
 let spaceResonanceOsc = null;
 let spaceResonanceGain = null;
+let masterDroneGain = null;
+let audioAnalyser = null;
 let isAudioActive = false;
+let currentWaveform = 'sine';
+
+// Real-Time Socket.io Connection
+let socket = null;
 
 /* ==========================================================================
    INITIALIZATION & AUTOPLAY BYPASS
@@ -37,14 +53,20 @@ document.getElementById('btn-init-system').addEventListener('click', async () =>
     // 2. Perform Haptic Trigger test
     triggerHaptics([80]);
 
-    // 3. Hide activation overlay
+    // 3. Initialize Real-Time WebSockets
+    initSocketEngine();
+
+    // 4. Hide activation overlay
     const overlay = document.getElementById('audio-bypass-overlay');
     overlay.classList.add('fade-out');
 
-    logToConsole('Audio, Haptic, and Physics Engines synchronized successfully.', 'success');
+    logToConsole('Quantum Core activated: Audio Synth, Sockets, and Physics online.', 'success');
 
-    // 4. Kick off database seed or loading
+    // 5. Kick off dashboard bootstrap
     await bootstrapDashboard();
+
+    // 6. Setup mobile gyroscope
+    initGyroscope();
 
   } catch (error) {
     console.error('Failed to activate system:', error);
@@ -75,76 +97,230 @@ window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
 /* ==========================================================================
-   WEB AUDIO SYNTHESIZER ENGINE
+   SOCKET.IO REAL-TIME MULTIPLAYER SYNCHRONIZATION
+   ========================================================================== */
+
+function initSocketEngine() {
+  try {
+    if (typeof io !== 'undefined') {
+      socket = io();
+
+      socket.on('connect', () => {
+        logToConsole(`[SOCKET] Connected to telemetry mesh (ID: ${socket.id.slice(0,6)}...)`, 'system');
+      });
+
+      // Listen for partner tether shockwaves
+      socket.on('tether_pulse', (data) => {
+        logToConsole(`⚡ Shockwave received from ${data.sender}! Added +${data.addedXP} XP.`, 'success');
+        triggerTetherShockwave();
+        triggerHaptics([60, 40, 60]);
+      });
+
+      // Listen for raid boss damage across all clients
+      socket.on('boss_damaged', (data) => {
+        logToConsole(`⚔️ Boss attacked by ${data.attacker}! Dealt -${data.damage} damage.`, 'system');
+        updateBossUI(data.currentHp, data.maxHp);
+        spawnFloatingDamage(data.damage);
+      });
+
+      // Listen for partner cheers
+      socket.on('partner_high_five', (data) => {
+        logToConsole(`🙌 High-Five received from partner! Streak synergy boosted!`, 'success');
+        playChimeSFX();
+        triggerHaptics([80, 50, 120]);
+        triggerPartnerCardGlow();
+      });
+    }
+  } catch (err) {
+    console.warn('Socket.io connection initialization skipped:', err);
+  }
+}
+
+// Visual shockwave along SVG tether
+function triggerTetherShockwave() {
+  const tetherCurve = document.getElementById('tether-curve');
+  if (!tetherCurve) return;
+
+  tetherCurve.style.stroke = '#ffffff';
+  tetherCurve.style.strokeWidth = '8';
+  tetherCurve.style.filter = 'drop-shadow(0 0 15px #00f5ff)';
+
+  setTimeout(() => {
+    tetherCurve.style.stroke = 'url(#tether-gradient)';
+    tetherCurve.style.strokeWidth = '4';
+    tetherCurve.style.filter = 'url(#tether-glow)';
+  }, 600);
+}
+
+function triggerPartnerCardGlow() {
+  const pCard = document.getElementById('partner-user-card');
+  if (!pCard) return;
+  pCard.style.boxShadow = '0 0 35px #00ff88, inset 0 0 20px #00ff88';
+  setTimeout(() => {
+    pCard.style.boxShadow = '';
+  }, 1000);
+}
+
+/* ==========================================================================
+   WEB AUDIO SYNTHESIZER & OSCILLOSCOPE ENGINE
    ========================================================================== */
 
 function initAudioEngine() {
   if (isAudioActive) return;
 
-  // Create audio context supporting prefix fallbacks
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
   audioCtx = new AudioContextClass();
   
-  // Node 1: Space Hum (Triangle)
+  // Analyser node for oscilloscope
+  audioAnalyser = audioCtx.createAnalyser();
+  audioAnalyser.fftSize = 256;
+
+  // Master drone gain
+  masterDroneGain = audioCtx.createGain();
+  masterDroneGain.gain.setValueAtTime(0.65, audioCtx.currentTime);
+
+  // Node 1: Space Hum
   spaceHumOsc = audioCtx.createOscillator();
-  spaceHumOsc.type = 'triangle';
+  spaceHumOsc.type = currentWaveform;
   spaceHumOsc.frequency.setValueAtTime(55, audioCtx.currentTime); // A1 note
   
-  // Node 2: Space Resonance (Sine)
+  // Node 2: Space Resonance
   spaceResonanceOsc = audioCtx.createOscillator();
   spaceResonanceOsc.type = 'sine';
   spaceResonanceOsc.frequency.setValueAtTime(110, audioCtx.currentTime); // A2 note
 
-  // Biquad Filter (Lowpass) to make it deep and moody
+  // Biquad Filter (Lowpass)
   spaceHumFilter = audioCtx.createBiquadFilter();
   spaceHumFilter.type = 'lowpass';
-  spaceHumFilter.frequency.setValueAtTime(180, audioCtx.currentTime);
-  spaceHumFilter.Q.setValueAtTime(1.5, audioCtx.currentTime);
+  spaceHumFilter.frequency.setValueAtTime(350, audioCtx.currentTime);
+  spaceHumFilter.Q.setValueAtTime(4.0, audioCtx.currentTime);
 
-  // Gain nodes for volume management
+  // Individual Gain nodes
   spaceHumGain = audioCtx.createGain();
   spaceHumGain.gain.setValueAtTime(0.06, audioCtx.currentTime);
 
   spaceResonanceGain = audioCtx.createGain();
   spaceResonanceGain.gain.setValueAtTime(0.015, audioCtx.currentTime);
 
-  // Connect graphs
+  // Connect routing
   spaceHumOsc.connect(spaceHumFilter);
   spaceResonanceOsc.connect(spaceHumFilter);
   spaceHumFilter.connect(spaceHumGain);
   spaceHumFilter.connect(spaceResonanceGain);
   
-  spaceHumGain.connect(audioCtx.destination);
-  spaceResonanceGain.connect(audioCtx.destination);
+  spaceHumGain.connect(masterDroneGain);
+  spaceResonanceGain.connect(masterDroneGain);
 
-  // Start oscillators
+  masterDroneGain.connect(audioAnalyser);
+  audioAnalyser.connect(audioCtx.destination);
+
   spaceHumOsc.start(0);
   spaceResonanceOsc.start(0);
   
   isAudioActive = true;
+
+  // Start oscilloscope render loop
+  requestAnimationFrame(drawOscilloscope);
 }
 
-// Modulate frequency/filter based on card hover tilt
+// Draw live waveform on synth studio oscilloscope canvas
+function drawOscilloscope() {
+  const scopeCanvas = document.getElementById('synth-scope-canvas');
+  if (scopeCanvas && audioAnalyser && isAudioActive) {
+    const sCtx = scopeCanvas.getContext('2d');
+    const bufferLength = audioAnalyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    audioAnalyser.getByteTimeDomainData(dataArray);
+
+    sCtx.fillStyle = '#030308';
+    sCtx.fillRect(0, 0, scopeCanvas.width, scopeCanvas.height);
+
+    sCtx.lineWidth = 2;
+    sCtx.strokeStyle = currentTheme === 'cyberpunk' ? '#00ff88' : '#00f5ff';
+    sCtx.shadowBlur = 8;
+    sCtx.shadowColor = sCtx.strokeStyle;
+    sCtx.beginPath();
+
+    const sliceWidth = (scopeCanvas.width * 1.0) / bufferLength;
+    let x = 0;
+
+    for (let i = 0; i < bufferLength; i++) {
+      const v = dataArray[i] / 128.0;
+      const y = (v * scopeCanvas.height) / 2;
+
+      if (i === 0) {
+        sCtx.moveTo(x, y);
+      } else {
+        sCtx.lineTo(x, y);
+      }
+      x += sliceWidth;
+    }
+
+    sCtx.lineTo(scopeCanvas.width, scopeCanvas.height / 2);
+    sCtx.stroke();
+  }
+  requestAnimationFrame(drawOscilloscope);
+}
+
+// Modulate frequency/filter based on card hover tilt or phone gyroscope
 function updateSpaceHum(tiltMagnitude) {
-  if (!isAudioActive || !audioCtx) return;
+  if (!isAudioActive || !audioCtx || !spaceHumOsc) return;
   
-  // Keep values bounded
   const mag = Math.min(Math.max(tiltMagnitude, 0), 1.5);
   
-  // Modulate main frequency between 55Hz and 75Hz
-  const humFreq = 55 + (mag * 15);
+  const humFreq = 55 + (mag * 25);
   spaceHumOsc.frequency.setTargetAtTime(humFreq, audioCtx.currentTime, 0.1);
   
-  // Modulate resonance frequency between 110Hz and 150Hz
-  const resonanceFreq = 110 + (mag * 30);
+  const resonanceFreq = 110 + (mag * 50);
   spaceResonanceOsc.frequency.setTargetAtTime(resonanceFreq, audioCtx.currentTime, 0.15);
 
-  // Open up filter cutoff as user tilts: 180Hz (flat) to 550Hz (tilted)
-  const filterCutoff = 180 + (mag * 250);
+  const baseCutoff = parseFloat(document.getElementById('slider-filter-cutoff')?.value || 350);
+  const filterCutoff = baseCutoff + (mag * 350);
   spaceHumFilter.frequency.setTargetAtTime(filterCutoff, audioCtx.currentTime, 0.08);
 }
 
-// Plasma Snap SFX (7-Day milestone)
+// Synthesizer Harmonic Chord (Test Button)
+function playHarmonicChordSFX() {
+  if (!isAudioActive || !audioCtx) return;
+
+  const notes = [220, 277.18, 329.63]; // A3, C#4, E4 (Major Triad)
+  notes.forEach((freq, idx) => {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+
+    osc.type = currentWaveform;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+    gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.2 + idx * 0.2);
+
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    osc.start(audioCtx.currentTime + idx * 0.08);
+    osc.stop(audioCtx.currentTime + 1.5 + idx * 0.2);
+  });
+}
+
+// Chime SFX for cheers and quest claim
+function playChimeSFX() {
+  if (!isAudioActive || !audioCtx) return;
+  const chimeNotes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+  chimeNotes.forEach((f, i) => {
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(f, audioCtx.currentTime + i * 0.07);
+    g.gain.setValueAtTime(0.1, audioCtx.currentTime + i * 0.07);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + i * 0.07 + 0.6);
+    osc.connect(g);
+    g.connect(audioCtx.destination);
+    osc.start(audioCtx.currentTime + i * 0.07);
+    osc.stop(audioCtx.currentTime + i * 0.07 + 0.7);
+  });
+}
+
+// Plasma Snap SFX
 function playPlasmaSnapSFX() {
   if (!isAudioActive || !audioCtx) return;
 
@@ -170,7 +346,7 @@ function playPlasmaSnapSFX() {
   osc.stop(audioCtx.currentTime + 0.4);
 }
 
-// Warp Speed Zoom SFX (30-Day milestone)
+// Warp Speed Zoom SFX
 function playWarpZoomSFX() {
   if (!isAudioActive || !audioCtx) return;
 
@@ -204,14 +380,10 @@ function playWarpZoomSFX() {
 function playShieldShatterSFX() {
   if (!isAudioActive || !audioCtx) return;
 
-  // Synthesize white noise for shatter sound
   const bufferSize = audioCtx.sampleRate * 0.4;
   const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
   const data = buffer.getChannelData(0);
-  
-  for (let i = 0; i < bufferSize; i++) {
-    data[i] = Math.random() * 2 - 1;
-  }
+  for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
 
   const noiseNode = audioCtx.createBufferSource();
   noiseNode.buffer = buffer;
@@ -229,26 +401,12 @@ function playShieldShatterSFX() {
   filter.connect(gainNode);
   gainNode.connect(audioCtx.destination);
 
-  // Play high chime osc alongside noise
-  const chime = audioCtx.createOscillator();
-  chime.type = 'sine';
-  chime.frequency.setValueAtTime(2500, audioCtx.currentTime);
-  chime.frequency.linearRampToValueAtTime(800, audioCtx.currentTime + 0.3);
-
-  const chimeGain = audioCtx.createGain();
-  chimeGain.gain.setValueAtTime(0.08, audioCtx.currentTime);
-  chimeGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
-
-  chime.connect(chimeGain);
-  chimeGain.connect(audioCtx.destination);
-
   noiseNode.start(0);
-  chime.start(0);
-  chime.stop(audioCtx.currentTime + 0.35);
+  noiseNode.stop(audioCtx.currentTime + 0.35);
 }
 
 /* ==========================================================================
-   HAPTICS MANAGER
+   HAPTICS MANAGER & MOBILE GYROSCOPE
    ========================================================================== */
 
 function triggerHaptics(pattern) {
@@ -256,13 +414,31 @@ function triggerHaptics(pattern) {
     try {
       navigator.vibrate(pattern);
     } catch (e) {
-      console.warn('Vibration API blocked or not supported on this device schema.', e);
+      console.warn('Vibration not supported on this device.', e);
     }
   }
 }
 
+function initGyroscope() {
+  if (window.DeviceOrientationEvent) {
+    window.addEventListener('deviceorientation', (event) => {
+      if (event.gamma === null || event.beta === null) return;
+      
+      const dx = Math.min(Math.max(event.gamma / 30, -1), 1);
+      const dy = Math.min(Math.max((event.beta - 45) / 30, -1), 1);
+      
+      const rotX = -(dy * 12).toFixed(2);
+      const rotY = (dx * 12).toFixed(2);
+
+      mainCard.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg) translate3d(0, 0, 10px)`;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      updateSpaceHum(dist);
+    });
+  }
+}
+
 /* ==========================================================================
-   3D TILT PHYSICS & PARALLAX MATH
+   3D TILT PHYSICS & PARALLAX MATH (DESKTOP CURSOR)
    ========================================================================== */
 
 const mainCard = document.getElementById('main-user-card');
@@ -274,54 +450,40 @@ mainCard.addEventListener('mousemove', (e) => {
   const w = rect.width;
   const h = rect.height;
 
-  // Relative coordinates centered on zero (-1.0 to 1.0)
   const dx = (x - w/2) / (w/2);
   const dy = (y - h/2) / (h/2);
 
-  // 3D rotations (Max 12 degrees)
   const rotX = -(dy * 12).toFixed(2);
   const rotY = (dx * 12).toFixed(2);
 
-  // Update card transform variables (Z axis drops down in danger state)
   const zTranslation = mainCard.classList.contains('danger') ? -25 : 10;
   mainCard.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg) translate3d(0, 0, ${zTranslation}px)`;
 
-  // Glass specular glare offsets
   mainCard.style.setProperty('--glare-x', `${(x / w) * 100}%`);
   mainCard.style.setProperty('--glare-y', `${(y / h) * 100}%`);
-
-  // Specular contribution grid offset
   mainCard.style.setProperty('--shift-x', `${dx * -20}`);
   mainCard.style.setProperty('--shift-y', `${dy * -20}`);
 
-  // Modulate sound hum pitch based on distance from center
   const distance = Math.sqrt(dx*dx + dy*dy);
   updateSpaceHum(distance);
-
-  // Update custom tilt variables for custom danger classes
-  mainCard.style.setProperty('--tilt-x-card', `${dx * 5}px`);
-  mainCard.style.setProperty('--tilt-y-card', `${dy * 5}px`);
 });
 
 mainCard.addEventListener('mouseleave', () => {
-  // Gracefully transition back to static
   mainCard.style.transform = `rotateX(0deg) rotateY(0deg) translate3d(0, 0, 0px)`;
   mainCard.style.setProperty('--shift-x', '0');
   mainCard.style.setProperty('--shift-y', '0');
-  
-  // Fade out audio hum modulation
   updateSpaceHum(0);
 });
 
 /* ==========================================================================
-   VELOCITY PARTICLE & WARP SPEED SYSTEMS
+   PARTICLE CANVAS ANIMATIONS
    ========================================================================== */
 
 class Particle {
   constructor(x, y, type, color) {
     this.x = x;
     this.y = y;
-    this.type = type; // 'spark' or 'mist'
+    this.type = type;
     this.color = color;
     
     if (type === 'spark') {
@@ -332,14 +494,13 @@ class Particle {
       this.size = Math.random() * 2 + 1.5;
       this.decay = Math.random() * 0.03 + 0.015;
       this.gravity = 0.05;
-    } else { // 'mist'
+    } else {
       this.vx = (Math.random() - 0.5) * 0.8;
       this.vy = (Math.random() - 0.5) * 0.8;
       this.size = Math.random() * 12 + 6;
       this.decay = Math.random() * 0.01 + 0.005;
-      this.gravity = -0.01; // mist floats up
+      this.gravity = -0.01;
     }
-    
     this.opacity = 1.0;
   }
 
@@ -348,9 +509,7 @@ class Particle {
     this.y += this.vy;
     this.vy += this.gravity;
     this.opacity -= this.decay;
-    if (this.type === 'mist') {
-      this.size += 0.1; // mist expands
-    }
+    if (this.type === 'mist') this.size += 0.1;
   }
 
   draw() {
@@ -363,7 +522,6 @@ class Particle {
       ctx.shadowColor = this.color;
       ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
     } else {
-      ctx.shadowBlur = 0;
       ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
     }
     ctx.fill();
@@ -371,7 +529,6 @@ class Particle {
   }
 }
 
-// Track mouse speed and positions over document
 window.addEventListener('mousemove', (e) => {
   mouse.x = e.clientX;
   mouse.y = e.clientY;
@@ -381,14 +538,13 @@ window.addEventListener('mousemove', (e) => {
   if (dt > 1) {
     const dx = mouse.x - mouse.lastX;
     const dy = mouse.y - mouse.lastY;
-    mouse.speed = Math.sqrt(dx*dx + dy*dy) / dt; // pixels per millisecond
+    mouse.speed = Math.sqrt(dx*dx + dy*dy) / dt;
   }
   
   mouse.lastX = mouse.x;
   mouse.lastY = mouse.y;
   lastMouseMoveTime = now;
 
-  // Only spawn cursor particles if hovered over the main card
   const rect = mainCard.getBoundingClientRect();
   const isOverCard = (
     mouse.x >= rect.left && 
@@ -408,12 +564,10 @@ window.addEventListener('mousemove', (e) => {
     const color = colors[Math.floor(Math.random() * colors.length)];
 
     if (mouse.speed > 1.2) {
-      // High speed: spawn dynamic neon sparks
       for (let i = 0; i < 2; i++) {
         particles.push(new Particle(mouse.x, mouse.y, 'spark', color));
       }
     } else if (mouse.speed > 0.05) {
-      // Slow speed: spawn soft glowing mist
       if (Math.random() < 0.3) {
         particles.push(new Particle(mouse.x, mouse.y, 'mist', color));
       }
@@ -421,18 +575,16 @@ window.addEventListener('mousemove', (e) => {
   }
 });
 
-// Particles animation loop
 function tickParticles() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   if (isWarpSpeed) {
-    // Warp speed Starfield simulation
     const cx = canvas.width / 2;
     const cy = canvas.height / 2;
     ctx.lineWidth = 2;
     
     warpStars.forEach(star => {
-      star.z -= 12; // accelerate forwards
+      star.z -= 12;
       if (star.z <= 0) {
         star.z = canvas.width;
         star.x = (Math.random() - 0.5) * canvas.width;
@@ -443,7 +595,6 @@ function tickParticles() {
       const px = star.x * k + cx;
       const py = star.y * k + cy;
       
-      // Calculate radial trail lines
       const prevK = 220 / (star.z + 40);
       const opx = star.x * prevK + cx;
       const opy = star.y * prevK + cy;
@@ -461,7 +612,6 @@ function tickParticles() {
       ctx.stroke();
     });
   } else {
-    // Standard telemetry sparks updating
     particles = particles.filter(p => p.opacity > 0.01);
     particles.forEach(p => {
       p.update();
@@ -474,7 +624,7 @@ function tickParticles() {
 requestAnimationFrame(tickParticles);
 
 /* ==========================================================================
-   CO-OP DYNAMIC BEZIER TETHER
+   CO-OP DYNAMIC SVG TETHER
    ========================================================================== */
 
 const tetherSvg = document.getElementById('tether-svg');
@@ -482,31 +632,25 @@ const tetherCurve = document.getElementById('tether-curve');
 
 function updateCoopTether() {
   const partnerCard = document.getElementById('partner-user-card');
-  
-  // Don't draw if partner card is hidden
-  if (partnerCard.classList.contains('hidden') || !userData?.coopPartnerId) {
-    tetherSvg.style.display = 'none';
+  if (!partnerCard || partnerCard.classList.contains('hidden') || !userData?.coopPartnerId) {
+    if (tetherSvg) tetherSvg.style.display = 'none';
     return;
   }
   
   tetherSvg.style.display = 'block';
 
-  // Anchor points on elements
   const mainRect = mainCard.getBoundingClientRect();
   const partnerRect = partnerCard.getBoundingClientRect();
 
-  // Coordinates matching absolute window dimensions
   const scrollX = window.scrollX;
   const scrollY = window.scrollY;
 
-  // Link from middle bottom of main card to middle left of partner card
   const x1 = mainRect.left + mainRect.width / 2 + scrollX;
   const y1 = mainRect.bottom + scrollY;
 
   const x2 = partnerRect.left + scrollX;
   const y2 = partnerRect.top + partnerRect.height / 2 + scrollY;
 
-  // Calculate smooth control coordinates for S-Curve
   const dx = x2 - x1;
   const dy = y2 - y1;
   
@@ -515,14 +659,11 @@ function updateCoopTether() {
   const cx2 = x1 + dx * 0.5;
   const cy2 = y2;
 
-  // Render SVG cubic Bezier curve path
   tetherCurve.setAttribute('d', `M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}`);
 }
 
-// Update tether curve positions on layout transitions
 window.addEventListener('resize', updateCoopTether);
 window.addEventListener('scroll', updateCoopTether);
-// Continuously update during animation frame ticks so 3D tilt adjustments map seamlessly
 function renderLoop() {
   updateCoopTether();
   requestAnimationFrame(renderLoop);
@@ -530,13 +671,12 @@ function renderLoop() {
 requestAnimationFrame(renderLoop);
 
 /* ==========================================================================
-   GAMIFICATION STATE ANIMATIONS: SHATTER, badge COIN, SMOKE
+   SHATTER & STEAM ANIMATIONS
    ========================================================================== */
 
-// 1. Shield Shatter Particle generator
 function triggerShieldShatterAnimation() {
   const container = document.getElementById('streak-shatter-container');
-  container.innerHTML = ''; // clean old elements
+  container.innerHTML = '';
 
   const rect = container.getBoundingClientRect();
   const shardsCount = 18;
@@ -548,18 +688,15 @@ function triggerShieldShatterAnimation() {
     const shard = document.createElement('div');
     shard.className = 'shatter-shard';
     
-    // Distribute shards centered inside block
     const cx = rect.width / 2;
     const cy = rect.height / 2;
     shard.style.left = `${cx + (Math.random() - 0.5) * 40}px`;
     shard.style.top = `${cy + (Math.random() - 0.5) * 40}px`;
 
-    // Size variations
     const size = Math.random() * 8 + 4;
     shard.style.width = `${size}px`;
     shard.style.height = `${size}px`;
 
-    // Direction variables read by CSS keyframes
     const angle = Math.random() * Math.PI * 2;
     const dist = Math.random() * 120 + 60;
     const tx = `${Math.cos(angle) * dist}px`;
@@ -572,7 +709,6 @@ function triggerShieldShatterAnimation() {
 
     container.appendChild(shard);
 
-    // Apply animation trigger class
     setTimeout(() => {
       shard.classList.add('shatter-trigger');
     }, 10);
@@ -581,7 +717,6 @@ function triggerShieldShatterAnimation() {
   logToConsole('⚠️ STREAK SHIELD CONSUMED! Streak preserved.', 'error');
 }
 
-// 2. Power hour animated steam puffs generator
 let steamInterval = null;
 function toggleSteamGenerator(active) {
   const container = document.getElementById('steam-container');
@@ -595,8 +730,6 @@ function toggleSteamGenerator(active) {
   steamInterval = setInterval(() => {
     const puff = document.createElement('div');
     puff.className = 'steam-puff';
-    
-    // Spawn across top boundary
     puff.style.left = `${Math.random() * 100}%`;
     puff.style.bottom = '0';
     puff.style.animationDuration = `${Math.random() * 1.5 + 1.5}s`;
@@ -605,7 +738,6 @@ function toggleSteamGenerator(active) {
 
     container.appendChild(puff);
 
-    // Prune spent puffs
     setTimeout(() => {
       puff.remove();
     }, 3000);
@@ -616,14 +748,11 @@ function toggleSteamGenerator(active) {
    MILESTONE BURSTS SHOWCASE
    ========================================================================== */
 
-// 1. 7-Day Antigravity Confetti Burst
 function trigger7DayMilestone() {
   playPlasmaSnapSFX();
   triggerHaptics([100, 40, 100]);
-
   logToConsole('🌌 7-DAY MILESTONE! Floating gravity sequence activated.', 'success');
 
-  // Trigger floating CSS on card elements
   const elements = [
     document.querySelector('.username'),
     document.querySelector('.streak-number'),
@@ -635,8 +764,7 @@ function trigger7DayMilestone() {
     if (el) el.classList.add('antigravity-float');
   });
 
-  // Confetti particles spawning in canvas
-  const colors = ['#6c63ff', '#00f5ff', '#ff007f', '#ffd700', '#00ff00'];
+  const colors = ['#6c63ff', '#00f5ff', '#ff007f', '#ffd700', '#00ff88'];
   for (let i = 0; i < 60; i++) {
     const p = new Particle(
       canvas.width * Math.random(),
@@ -644,15 +772,13 @@ function trigger7DayMilestone() {
       'spark',
       colors[Math.floor(Math.random() * colors.length)]
     );
-    // Overwrite speeds to drift upwards
     p.vy = -(Math.random() * 5 + 4);
     p.vx = (Math.random() - 0.5) * 3;
-    p.gravity = -0.05; // upwards pull
+    p.gravity = -0.05;
     p.decay = 0.008;
     particles.push(p);
   }
 
-  // Restore gravity after 6 seconds
   setTimeout(() => {
     elements.forEach(el => {
       if (el) el.classList.remove('antigravity-float');
@@ -661,14 +787,11 @@ function trigger7DayMilestone() {
   }, 6000);
 }
 
-// 2. 30-Day Warp Speed Burst
 function trigger30DayMilestone() {
   playWarpZoomSFX();
   triggerHaptics([60, 40, 60, 40, 200]);
-
   logToConsole('🚀 30-DAY WARP SPEED MILESTONE! Warp hyperdrive engaged.', 'success');
 
-  // Trigger screen flash overlay
   const flash = document.getElementById('screen-flash');
   flash.style.opacity = '1.0';
   flash.style.transition = 'none';
@@ -678,11 +801,9 @@ function trigger30DayMilestone() {
     flash.style.opacity = '0';
   }, 50);
 
-  // Set warp speed active state
   isWarpSpeed = true;
   document.querySelector('.dashboard-container').style.filter = 'blur(1px)';
 
-  // Return to normal after 3 seconds
   setTimeout(() => {
     isWarpSpeed = false;
     document.querySelector('.dashboard-container').style.filter = 'none';
@@ -691,12 +812,12 @@ function trigger30DayMilestone() {
 }
 
 /* ==========================================================================
-   API DATA LINKING & BACKEND CONNECTIONS
+   API DATA LINKING & DASHBOARD BOOTSTRAP
    ========================================================================== */
 
-// Log lines formatter
 function logToConsole(message, type = 'system') {
   const windowEl = document.getElementById('system-logs');
+  if (!windowEl) return;
   const line = document.createElement('div');
   line.className = `log-line ${type}`;
   line.innerText = `[${new Date().toLocaleTimeString()}] ${message}`;
@@ -704,16 +825,13 @@ function logToConsole(message, type = 'system') {
   windowEl.scrollTop = windowEl.scrollHeight;
 }
 
-// Check database/mock user states on boot
 async function bootstrapDashboard() {
   logToConsole('Connecting to API gateway...', 'system');
   
   try {
-    // Fetch stats using empty ID first (which will fall back to first seeded user)
     let res = await fetch('/api/users/default/dashboard');
     if (!res.ok) {
-      // Seed first if fetch fails or user is empty
-      logToConsole('Dashboard empty. Seeding system profiles...', 'system');
+      logToConsole('Seeding upgraded system profiles...', 'system');
       await seedDatabase();
     } else {
       const data = await res.json();
@@ -723,50 +841,71 @@ async function bootstrapDashboard() {
         activeUserId = data.user._id;
         updateDashboardUI(data);
         logToConsole(`Fetched dashboard telemetry for ${data.user.username}.`, 'success');
+
+        // Load upgraded modules
+        loadAndRenderHeatmap();
+        loadAndRenderQuests();
+        loadAndRenderBoss();
       }
     }
   } catch (error) {
     console.error(error);
-    logToConsole('API Gateway fetch failed. Running in offline mock data schema.', 'error');
-    // Fall back to seed anyway (will fall back to in-memory seed)
+    logToConsole('API Gateway fetch failed. Seeding fallback profile...', 'error');
     await seedDatabase();
   }
 }
 
-// Trigger backend re-seed
 async function seedDatabase() {
   try {
-    logToConsole('Requesting backend seeding...', 'system');
+    logToConsole('Requesting backend database re-seed...', 'system');
     const res = await fetch('/api/seed', { method: 'POST' });
     const data = await res.json();
     
-    // Grab first user's ID
     const userA = data.users[0];
     activeUserId = userA._id;
+    logToConsole('Database re-seeded successfully with Quantum upgrades!', 'success');
     
-    logToConsole('Database seeded successfully!', 'success');
-    
-    // Refresh UI
     const dashboardRes = await fetch(`/api/users/${activeUserId}/dashboard`);
     const dashboardData = await dashboardRes.json();
     updateDashboardUI(dashboardData);
+
+    loadAndRenderHeatmap();
+    loadAndRenderQuests();
+    loadAndRenderBoss();
   } catch (e) {
     logToConsole('Database seeding failed: ' + e.message, 'error');
   }
 }
 
-// Bind UI controls to values
 function updateDashboardUI(data) {
   userData = data.user;
   partnerData = data.partner;
 
-  // 1. Text elements
+  // 1. User Header & Title
   document.getElementById('txt-username').innerText = userData.username;
   document.getElementById('txt-user-level').innerText = userData.level;
   document.getElementById('txt-current-streak').innerText = userData.currentStreak;
   document.getElementById('txt-longest-streak').innerText = userData.longestStreak;
   
-  // Calculate level progress caps (1000 XP linear level caps)
+  const titleEl = document.getElementById('txt-player-title');
+  if (titleEl) titleEl.innerText = userData.playerTitle || 'Cyber Pioneer';
+
+  // 2. Crystals Currency HUD
+  const crystals = userData.crystals || 0;
+  const crystalCountEl = document.getElementById('nav-crystal-count');
+  if (crystalCountEl) crystalCountEl.innerText = crystals;
+  const shopCrystalsEl = document.getElementById('shop-modal-crystals');
+  if (shopCrystalsEl) shopCrystalsEl.innerText = crystals;
+
+  // 3. Active Card Frame
+  const cardEl = document.getElementById('main-user-card');
+  const frameClasses = ['frame-electric', 'frame-magma', 'frame-quantum', 'frame-matrix'];
+  frameClasses.forEach(c => cardEl.classList.remove(c));
+  if (userData.activeFrame && userData.activeFrame !== 'default') {
+    cardEl.classList.add(userData.activeFrame);
+  }
+
+  // 4. XP Level Progress
   const baseXPForCurrentLevel = (userData.level - 1) * 1000;
   const relativeXP = userData.currentXP - baseXPForCurrentLevel;
   document.getElementById('txt-xp-ratio').innerText = `${relativeXP} / 1000`;
@@ -774,12 +913,31 @@ function updateDashboardUI(data) {
   const xpPercent = Math.min(Math.max((relativeXP / 1000) * 100, 0), 100);
   document.getElementById('bar-xp-progress').style.width = `${xpPercent}%`;
 
-  // 2. Theme settings
+  // 5. Streak Buffs HUD
+  const buffMomentum = document.getElementById('buff-momentum');
+  const buffHyperdrive = document.getElementById('buff-hyperdrive');
+  const multBadge = document.getElementById('txt-multiplier-badge');
+
+  if (userData.currentStreak >= 30) {
+    if (buffHyperdrive) buffHyperdrive.classList.add('active');
+    if (buffMomentum) buffMomentum.classList.add('active');
+    if (multBadge) multBadge.innerText = '1.25x HYPER SPEED';
+  } else if (userData.currentStreak >= 7) {
+    if (buffMomentum) buffMomentum.classList.add('active');
+    if (buffHyperdrive) buffHyperdrive.classList.remove('active');
+    if (multBadge) multBadge.innerText = '1.1x MOMENTUM';
+  } else {
+    if (buffMomentum) buffMomentum.classList.remove('active');
+    if (buffHyperdrive) buffHyperdrive.classList.remove('active');
+    if (multBadge) multBadge.innerText = '1.0x SPEED';
+  }
+
+  // 6. Theme settings
   if (userData.themePreference) {
     switchTheme(userData.themePreference, false);
   }
 
-  // 3. Power hour features
+  // 7. Power Hour state
   const pTag = document.getElementById('tag-power-hour');
   const simPowerHourChk = document.getElementById('sim-power-hour');
   if (userData.isPowerHour) {
@@ -792,14 +950,14 @@ function updateDashboardUI(data) {
     toggleSteamGenerator(false);
   }
 
-  // 4. Badges rendering
+  // 8. Badges rendering with 3D depth
   const bGrid = document.getElementById('badge-grid');
   bGrid.innerHTML = '';
   document.getElementById('txt-badge-count').innerText = `${userData.badges.length} Badges`;
   
   userData.badges.forEach(b => {
     const badgeEl = document.createElement('div');
-    badgeEl.className = `badge-card ${b.isHolographic ? 'holographic' : ''}`;
+    badgeEl.className = `badge-card badge-item ${b.isHolographic ? 'holographic' : ''}`;
     badgeEl.setAttribute('title', `${b.name} ${b.isHolographic ? '(Holographic Coin)' : '(Standard Badge)'}`);
     
     const inner = document.createElement('span');
@@ -810,11 +968,9 @@ function updateDashboardUI(data) {
     bGrid.appendChild(badgeEl);
   });
 
-  // 5. Shields display
+  // 9. Shields tracker
   const shieldsWrapper = document.getElementById('shield-indicators-wrapper');
   shieldsWrapper.innerHTML = '';
-  
-  // Total 3 possible shields (standard system display slots)
   const totalShieldSlots = 3;
   for (let i = 0; i < totalShieldSlots; i++) {
     const slot = document.createElement('div');
@@ -828,15 +984,17 @@ function updateDashboardUI(data) {
     shieldsWrapper.appendChild(slot);
   }
 
-  // 6. Partner UI update
+  // 10. Partner UI update
   const partnerCard = document.getElementById('partner-user-card');
   if (partnerData) {
     partnerCard.classList.remove('hidden');
     document.getElementById('txt-partner-username').innerText = partnerData.username;
     document.getElementById('txt-partner-level').innerText = partnerData.level;
     document.getElementById('txt-partner-streak').innerText = partnerData.currentStreak;
+    
+    const pTitle = document.getElementById('txt-partner-title');
+    if (pTitle) pTitle.innerText = partnerData.playerTitle || 'Co-Op Partner';
 
-    // Check if partner's streak is broken (last active date is > 1 day ago)
     const statusTag = document.getElementById('partner-status-tag');
     const now = new Date();
     const isBroken = partnerData.lastActiveDate ? (Math.floor(Math.abs(now.setHours(0,0,0,0) - new Date(partnerData.lastActiveDate).setHours(0,0,0,0)) / (1000 * 60 * 60 * 24)) > 1) : true;
@@ -852,16 +1010,14 @@ function updateDashboardUI(data) {
     partnerCard.classList.add('hidden');
   }
 
-  // 7. Update Tether positions
   setTimeout(updateCoopTether, 100);
 }
 
-// Theme switcher application logic
+// Theme switcher
 function switchTheme(themeName, syncWithBackend = true) {
   document.body.className = `theme-${themeName}`;
   currentTheme = themeName;
 
-  // Toggle active button status
   document.querySelectorAll('.theme-btn').forEach(btn => {
     if (btn.getAttribute('data-theme') === themeName) {
       btn.classList.add('active');
@@ -877,14 +1033,10 @@ function switchTheme(themeName, syncWithBackend = true) {
       body: JSON.stringify({ theme: themeName })
     })
     .then(res => res.json())
-    .then(data => {
-      logToConsole(`Theme preference saved: ${themeName}`, 'system');
-    })
     .catch(e => console.error('Error saving theme preference:', e));
   }
 }
 
-// Add click listeners to switcher buttons
 document.querySelectorAll('.theme-btn').forEach(btn => {
   btn.addEventListener('click', (e) => {
     const selectedTheme = e.target.getAttribute('data-theme');
@@ -893,10 +1045,524 @@ document.querySelectorAll('.theme-btn').forEach(btn => {
 });
 
 /* ==========================================================================
+   UPGRADE V2.0: 60-DAY ACTIVITY HEATMAP MATRIX
+   ========================================================================== */
+
+async function loadAndRenderHeatmap() {
+  if (!activeUserId) return;
+  try {
+    const res = await fetch(`/api/users/${activeUserId}/heatmap`);
+    const data = await res.json();
+    const history = data.history || [];
+
+    const grid = document.getElementById('heatmap-grid');
+    const tooltip = document.getElementById('heatmap-tooltip');
+    if (!grid) return;
+
+    grid.innerHTML = '';
+
+    history.forEach(day => {
+      const cell = document.createElement('div');
+      cell.className = 'heatmap-cell';
+
+      // Assign intensity level
+      let lvl = 0;
+      if (day.xp >= 300) lvl = 4;
+      else if (day.xp >= 200) lvl = 3;
+      else if (day.xp >= 100) lvl = 2;
+      else if (day.xp > 0) lvl = 1;
+
+      cell.classList.add(`lvl-${lvl}`);
+
+      cell.addEventListener('mouseenter', () => {
+        tooltip.innerText = `📅 ${day.date} • ${day.xp} XP Earned • ${day.count} Activities`;
+        tooltip.style.color = lvl > 0 ? 'var(--accent-secondary)' : 'var(--text-muted)';
+      });
+
+      grid.appendChild(cell);
+    });
+  } catch (err) {
+    console.error('Failed to load activity heatmap:', err);
+  }
+}
+
+/* ==========================================================================
+   UPGRADE V2.0: DAILY QUESTS & CHALLENGES ENGINE
+   ========================================================================== */
+
+async function loadAndRenderQuests() {
+  if (!activeUserId) return;
+  try {
+    const res = await fetch(`/api/users/${activeUserId}/quests`);
+    const data = await res.json();
+    const quests = data.quests || [];
+
+    const listEl = document.getElementById('quests-list');
+    if (!listEl) return;
+
+    listEl.innerHTML = '';
+
+    quests.forEach(quest => {
+      const qItem = document.createElement('div');
+      qItem.className = `quest-item ${quest.completed ? 'completed' : ''}`;
+
+      const pct = Math.min(100, Math.floor((quest.progress / quest.target) * 100));
+
+      let actionHtml = '';
+      if (quest.claimed) {
+        actionHtml = `<span class="quest-claimed-tag">✓ REWARD CLAIMED</span>`;
+      } else if (quest.completed) {
+        actionHtml = `<button class="quest-claim-btn" data-quest-id="${quest.id}">CLAIM +${quest.rewardCrystals} 💎</button>`;
+      } else {
+        actionHtml = `<span class="quest-ratio">${quest.progress} / ${quest.target}</span>`;
+      }
+
+      qItem.innerHTML = `
+        <div class="quest-top">
+          <span class="quest-name">${quest.title}</span>
+          <div class="quest-reward-pills">
+            <span class="reward-pill">+${quest.rewardXP} XP</span>
+            <span class="reward-pill crystal">+${quest.rewardCrystals} 💎</span>
+          </div>
+        </div>
+        <div class="quest-desc">${quest.description}</div>
+        <div class="quest-progress-row">
+          <div class="quest-track">
+            <div class="quest-fill" style="width: ${pct}%;"></div>
+          </div>
+          ${actionHtml}
+        </div>
+      `;
+
+      // Wire up claim button
+      const claimBtn = qItem.querySelector('.quest-claim-btn');
+      if (claimBtn) {
+        claimBtn.addEventListener('click', async () => {
+          claimQuestReward(quest.id);
+        });
+      }
+
+      listEl.appendChild(qItem);
+    });
+  } catch (err) {
+    console.error('Failed to load daily quests:', err);
+  }
+}
+
+async function claimQuestReward(questId) {
+  try {
+    const res = await fetch(`/api/users/${activeUserId}/quests/${questId}/claim`, {
+      method: 'POST'
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      logToConsole(data.message, 'error');
+      return;
+    }
+
+    logToConsole(`🎉 ${data.message}`, 'success');
+    playChimeSFX();
+    triggerHaptics([80, 50, 100]);
+
+    // Refresh UI & Quests
+    updateDashboardUI(data);
+    loadAndRenderQuests();
+  } catch (err) {
+    logToConsole('Quest claim failed: ' + err.message, 'error');
+  }
+}
+
+/* ==========================================================================
+   UPGRADE V2.0: CO-OP RAID BOSS ARENA ("CHRONOS")
+   ========================================================================== */
+
+async function loadAndRenderBoss() {
+  try {
+    const res = await fetch('/api/boss');
+    const data = await res.json();
+    if (data.boss) {
+      updateBossUI(data.boss.currentHp, data.boss.maxHp);
+      const nameEl = document.getElementById('boss-name');
+      const tierEl = document.getElementById('boss-tier');
+      if (nameEl) nameEl.innerText = data.boss.name;
+      if (tierEl) tierEl.innerText = data.boss.tier;
+    }
+  } catch (err) {
+    console.error('Failed to load raid boss data:', err);
+  }
+}
+
+function updateBossUI(currentHp, maxHp) {
+  const ratioEl = document.getElementById('boss-hp-ratio');
+  const fillEl = document.getElementById('boss-hp-fill');
+  if (ratioEl) ratioEl.innerText = `${currentHp.toLocaleString()} / ${maxHp.toLocaleString()} HP`;
+  if (fillEl) {
+    const pct = Math.max(0, Math.min(100, (currentHp / maxHp) * 100));
+    fillEl.style.width = `${pct}%`;
+  }
+}
+
+function spawnFloatingDamage(dmg) {
+  const arena = document.querySelector('.boss-arena-card');
+  if (!arena) return;
+
+  const dmgEl = document.createElement('div');
+  dmgEl.className = 'floating-damage';
+  dmgEl.innerText = `-${dmg} HP`;
+
+  const rect = arena.getBoundingClientRect();
+  dmgEl.style.left = `${rect.width / 2 + (Math.random() - 0.5) * 80}px`;
+  dmgEl.style.top = `40px`;
+
+  arena.appendChild(dmgEl);
+
+  setTimeout(() => dmgEl.remove(), 1000);
+}
+
+document.getElementById('btn-attack-boss').addEventListener('click', async () => {
+  if (!activeUserId) return;
+
+  try {
+    const res = await fetch('/api/boss/attack', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: activeUserId })
+    });
+    const data = await res.json();
+
+    logToConsole(`⚔️ ${data.message} (+50 XP, +20 💎)`, 'success');
+    playPlasmaSnapSFX();
+    triggerHaptics([90, 40, 90]);
+
+    if (data.bossDefeated) {
+      logToConsole(`👑 CHRONOS DEFEATED! Earned ${data.boss.rewardBadge} and bonus Crystals!`, 'success');
+      trigger30DayMilestone();
+    }
+
+    if (data.user) {
+      updateDashboardUI({ user: data.user, partner: partnerData });
+      loadAndRenderQuests();
+    }
+
+    updateBossUI(data.boss.currentHp, data.boss.maxHp);
+    spawnFloatingDamage(data.damage);
+
+  } catch (err) {
+    logToConsole('Boss attack failed: ' + err.message, 'error');
+  }
+});
+
+/* ==========================================================================
+   UPGRADE V2.0: COSMETICS VAULT & REWARDS SHOP
+   ========================================================================== */
+
+async function loadAndRenderShop() {
+  try {
+    const res = await fetch('/api/shop/items');
+    const data = await res.json();
+    const items = data.items || [];
+
+    const grid = document.getElementById('shop-items-grid');
+    if (!grid) return;
+
+    grid.innerHTML = '';
+
+    const unlocked = userData?.unlockedFrames || ['default'];
+    const activeFrame = userData?.activeFrame || 'default';
+    const activeTitle = userData?.playerTitle || '';
+
+    items.forEach(item => {
+      const card = document.createElement('div');
+      card.className = 'shop-card';
+
+      let buttonHtml = '';
+      if (item.category === 'frame') {
+        if (activeFrame === item.id) {
+          buttonHtml = `<button class="shop-btn equipped">EQUIPPED</button>`;
+        } else if (unlocked.includes(item.id)) {
+          buttonHtml = `<button class="shop-btn owned" data-equip-frame="${item.id}">EQUIP</button>`;
+        } else {
+          buttonHtml = `<button class="shop-btn" data-buy-item="${item.id}">UNLOCK</button>`;
+        }
+      } else if (item.category === 'title') {
+        if (activeTitle === item.titleValue) {
+          buttonHtml = `<button class="shop-btn equipped">EQUIPPED</button>`;
+        } else {
+          buttonHtml = `<button class="shop-btn" data-buy-item="${item.id}">APPLY TITLE</button>`;
+        }
+      } else {
+        buttonHtml = `<button class="shop-btn" data-buy-item="${item.id}">BUY</button>`;
+      }
+
+      card.innerHTML = `
+        <div>
+          <div class="shop-item-icon">${item.icon}</div>
+          <div class="shop-item-name">${item.name}</div>
+          <div class="shop-item-desc">${item.description}</div>
+        </div>
+        <div class="shop-card-footer">
+          <div class="shop-price">💎 ${item.cost}</div>
+          ${buttonHtml}
+        </div>
+      `;
+
+      // Wire buy/equip listeners
+      const buyBtn = card.querySelector('[data-buy-item]');
+      if (buyBtn) {
+        buyBtn.addEventListener('click', () => buyShopItem(item.id));
+      }
+
+      const equipBtn = card.querySelector('[data-equip-frame]');
+      if (equipBtn) {
+        equipBtn.addEventListener('click', () => equipCardFrame(item.id));
+      }
+
+      grid.appendChild(card);
+    });
+  } catch (err) {
+    console.error('Failed to load shop catalog:', err);
+  }
+}
+
+async function buyShopItem(itemId) {
+  if (!activeUserId) return;
+  try {
+    const res = await fetch('/api/shop/purchase', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: activeUserId, itemId })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      logToConsole(data.message, 'error');
+      return;
+    }
+
+    logToConsole(`🛍️ ${data.message}`, 'success');
+    playChimeSFX();
+    triggerHaptics([70, 70, 100]);
+
+    updateDashboardUI({ user: data.user, partner: partnerData });
+    loadAndRenderShop();
+  } catch (err) {
+    logToConsole('Purchase failed: ' + err.message, 'error');
+  }
+}
+
+async function equipCardFrame(frameId) {
+  if (!activeUserId) return;
+  try {
+    const res = await fetch(`/api/users/${activeUserId}/customize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ activeFrame: frameId })
+    });
+    const data = await res.json();
+    logToConsole(`✨ Equipped ${frameId} frame!`, 'success');
+    playPlasmaSnapSFX();
+
+    updateDashboardUI({ user: data.user, partner: partnerData });
+    loadAndRenderShop();
+  } catch (err) {
+    logToConsole('Equip failed: ' + err.message, 'error');
+  }
+}
+
+/* ==========================================================================
+   UPGRADE V2.0: TIERED GLOBAL LEADERBOARDS
+   ========================================================================== */
+
+let leaderboardCache = [];
+
+async function loadAndRenderLeaderboard(tierFilter = 'all') {
+  try {
+    if (leaderboardCache.length === 0) {
+      const res = await fetch('/api/leaderboard');
+      const data = await res.json();
+      leaderboardCache = data.leaderboard || [];
+    }
+
+    const tbody = document.getElementById('leaderboard-tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    const filtered = tierFilter === 'all'
+      ? leaderboardCache
+      : leaderboardCache.filter(u => u.tier === tierFilter);
+
+    filtered.forEach(entry => {
+      const tr = document.createElement('tr');
+      const rankBadge = entry.rank <= 3
+        ? `<span class="rank-pill rank-${entry.rank}">${entry.rank}</span>`
+        : `#${entry.rank}`;
+
+      tr.innerHTML = `
+        <td>${rankBadge}</td>
+        <td>
+          <strong>${entry.username}</strong>
+          <div style="font-size: 0.65rem; color: var(--accent-secondary);">${entry.playerTitle}</div>
+        </td>
+        <td><span class="tier-badge ${entry.tier}">${entry.tier}</span></td>
+        <td>LVL ${entry.level}</td>
+        <td>🔥 ${entry.currentStreak}d</td>
+        <td><strong>${entry.currentXP.toLocaleString()} XP</strong></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch (err) {
+    console.error('Failed to load leaderboard:', err);
+  }
+}
+
+// Leaderboard tab switcher
+document.querySelectorAll('.tier-tab').forEach(tab => {
+  tab.addEventListener('click', (e) => {
+    document.querySelectorAll('.tier-tab').forEach(t => t.classList.remove('active'));
+    e.target.classList.add('active');
+    const tier = e.target.getAttribute('data-tier');
+    loadAndRenderLeaderboard(tier);
+  });
+});
+
+/* ==========================================================================
+   UPGRADE V2.0: 1-CLICK HIGH-RES CARD IMAGE EXPORTER
+   ========================================================================== */
+
+document.getElementById('btn-export-card').addEventListener('click', async () => {
+  const target = document.getElementById('main-user-card');
+  if (!target) return;
+
+  logToConsole('Generating high-resolution holographic card export...', 'system');
+  playPlasmaSnapSFX();
+
+  try {
+    const originalTransform = target.style.transform;
+    target.style.transform = 'none'; // Flatten 3D tilt for clean capture
+
+    const canvasCapture = await html2canvas(target, {
+      backgroundColor: null,
+      scale: 2.5, // Retina sharpness
+      useCORS: true
+    });
+
+    target.style.transform = originalTransform;
+
+    const dataUrl = canvasCapture.toDataURL('image/png');
+    const link = document.createElement('a');
+    link.download = `StreakCard_${userData ? userData.username : 'Pioneer'}.png`;
+    link.href = dataUrl;
+    link.click();
+
+    logToConsole('📸 Card snapshot exported and downloaded successfully!', 'success');
+    triggerHaptics([80, 50, 100]);
+  } catch (err) {
+    console.error('Export failed:', err);
+    logToConsole('Export error: ' + err.message, 'error');
+  }
+});
+
+/* ==========================================================================
+   UPGRADE V2.0: AUDIO SYNTHESIZER STUDIO CONTROLS
+   ========================================================================== */
+
+document.querySelectorAll('.wave-btn').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    document.querySelectorAll('.wave-btn').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    currentWaveform = e.target.getAttribute('data-wave');
+    if (spaceHumOsc) spaceHumOsc.type = currentWaveform;
+    logToConsole(`Waveform set to: ${currentWaveform}`, 'system');
+  });
+});
+
+const sliderCutoff = document.getElementById('slider-filter-cutoff');
+const valCutoff = document.getElementById('val-filter-cutoff');
+if (sliderCutoff) {
+  sliderCutoff.addEventListener('input', (e) => {
+    const val = parseFloat(e.target.value);
+    valCutoff.innerText = `${val} Hz`;
+    if (spaceHumFilter && audioCtx) {
+      spaceHumFilter.frequency.setTargetAtTime(val, audioCtx.currentTime, 0.05);
+    }
+  });
+}
+
+const sliderQ = document.getElementById('slider-filter-q');
+const valQ = document.getElementById('val-filter-q');
+if (sliderQ) {
+  sliderQ.addEventListener('input', (e) => {
+    const val = parseFloat(e.target.value);
+    valQ.innerText = `${val.toFixed(1)}`;
+    if (spaceHumFilter && audioCtx) {
+      spaceHumFilter.Q.setTargetAtTime(val, audioCtx.currentTime, 0.05);
+    }
+  });
+}
+
+const sliderDrone = document.getElementById('slider-drone-vol');
+const valDrone = document.getElementById('val-drone-vol');
+if (sliderDrone) {
+  sliderDrone.addEventListener('input', (e) => {
+    const val = parseInt(e.target.value, 10);
+    valDrone.innerText = `${val}%`;
+    if (masterDroneGain && audioCtx) {
+      masterDroneGain.gain.setTargetAtTime(val / 100, audioCtx.currentTime, 0.05);
+    }
+  });
+}
+
+document.getElementById('btn-test-synth-chord').addEventListener('click', playHarmonicChordSFX);
+
+/* ==========================================================================
+   MODAL DIALOG CONTROLLER (SYNTH, LEADERBOARD, SHOP)
+   ========================================================================== */
+
+document.getElementById('btn-open-synth').addEventListener('click', () => {
+  document.getElementById('modal-synth').classList.remove('hidden');
+});
+
+document.getElementById('btn-open-leaderboard').addEventListener('click', () => {
+  document.getElementById('modal-leaderboard').classList.remove('hidden');
+  loadAndRenderLeaderboard('all');
+});
+
+document.getElementById('btn-open-shop').addEventListener('click', () => {
+  document.getElementById('modal-shop').classList.remove('hidden');
+  loadAndRenderShop();
+});
+
+document.querySelectorAll('[data-close]').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    const modalId = e.target.getAttribute('data-close');
+    const modal = document.getElementById(modalId);
+    if (modal) modal.classList.add('hidden');
+  });
+});
+
+// Close modals when clicking backdrop
+document.querySelectorAll('.modal-backdrop').forEach(modal => {
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) modal.classList.add('hidden');
+  });
+});
+
+// Partner cheer (High-Five) button
+document.getElementById('btn-quick-cheer').addEventListener('click', () => {
+  if (socket) {
+    socket.emit('partner_high_five', { from: userData?.username });
+  }
+  logToConsole('🙌 High-Five sent across real-time quantum tether!', 'success');
+  playChimeSFX();
+  triggerHaptics([60, 40, 100]);
+  triggerTetherShockwave();
+});
+
+/* ==========================================================================
    BUTTON CLICK HANDLERS & SIMULATION CONTROLLERS
    ========================================================================== */
 
-// 1. Perform Log Activity Endpoint
+// 1. Log Activity Endpoint
 document.getElementById('btn-perform-activity').addEventListener('click', async () => {
   if (!activeUserId) return;
 
@@ -909,20 +1575,18 @@ document.getElementById('btn-perform-activity').addEventListener('click', async 
     });
     const data = await res.json();
 
-    logToConsole(`Activity saved! Added +${data.addedXP} XP.`, 'success');
+    logToConsole(`Activity saved! Added +${data.addedXP} XP and +${data.earnedCrystals || 15} 💎.`, 'success');
     
-    // Check level up
     if (data.leveledUp) {
       logToConsole(`👑 LEVEL UP! You reached Level ${data.user.level}!`, 'success');
+      playChimeSFX();
       triggerHaptics([100, 100, 100, 100]);
     }
 
-    // Check animations
     if (data.shieldShattered) {
       triggerShieldShatterAnimation();
     }
 
-    // Trigger milestone flashes dynamically based on new streak
     if (data.user.currentStreak === 7) {
       trigger7DayMilestone();
     } else if (data.user.currentStreak === 30) {
@@ -930,6 +1594,8 @@ document.getElementById('btn-perform-activity').addEventListener('click', async 
     }
 
     updateDashboardUI(data);
+    loadAndRenderHeatmap();
+    loadAndRenderQuests();
 
   } catch (error) {
     logToConsole('Activity registration failed: ' + error.message, 'error');
@@ -955,9 +1621,8 @@ document.getElementById('btn-revive-partner').addEventListener('click', async ()
 
     logToConsole(data.message, 'success');
     triggerHaptics([200, 100, 200]);
-    
-    // Play sweep
     playPlasmaSnapSFX();
+    triggerTetherShockwave();
     
     updateDashboardUI(data);
 
@@ -966,20 +1631,18 @@ document.getElementById('btn-revive-partner').addEventListener('click', async ()
   }
 });
 
-// 3. Simulate Missed Day (Updates last active date to 3 days ago, triggers activity log)
+// 3. Simulate Missed Day
 document.getElementById('btn-sim-miss').addEventListener('click', async () => {
   if (!activeUserId) return;
 
   logToConsole('Simulating missed calendar day...', 'system');
   try {
-    // 1. Force state on backend to missed
     await fetch(`/api/users/${activeUserId}/toggle-state`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ field: 'lastActiveDate', value: 'missed' })
     });
 
-    // 2. Run activity to verify shield deduction or reset
     logToConsole('Running activity check post-miss...', 'system');
     const res = await fetch(`/api/users/${activeUserId}/activity`, {
       method: 'POST',
@@ -1009,21 +1672,18 @@ document.getElementById('sim-power-hour').addEventListener('change', async (e) =
   const value = e.target.checked;
   logToConsole(`Setting Power Hour status: ${value}`, 'system');
   try {
-    const res = await fetch(`/api/users/${activeUserId}/toggle-state`, {
+    await fetch(`/api/users/${activeUserId}/toggle-state`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ field: 'isPowerHour', value })
     });
-    const data = await res.json();
-    
-    // Update dashboard UI
     bootstrapDashboard();
   } catch (error) {
     logToConsole('Power Hour toggle error: ' + error.message, 'error');
   }
 });
 
-// 5. Toggle Danger State checkbox (Mocked locally for UI display)
+// 5. Toggle Danger State checkbox
 document.getElementById('sim-danger-state').addEventListener('change', (e) => {
   const isDanger = e.target.checked;
   const card = document.getElementById('main-user-card');
@@ -1031,17 +1691,16 @@ document.getElementById('sim-danger-state').addEventListener('change', (e) => {
   if (isDanger) {
     card.classList.add('danger');
     logToConsole('🚨 Danger State Activated! &lt; 2 Hours left to preserve streak.', 'error');
-    // Low rumble sound frequency shift
     if (isAudioActive && spaceHumFilter) {
       spaceHumFilter.frequency.setValueAtTime(100, audioCtx.currentTime);
-      spaceHumFilter.Q.setValueAtTime(8, audioCtx.currentTime); // high resonance pulse
+      spaceHumFilter.Q.setValueAtTime(8, audioCtx.currentTime);
     }
   } else {
     card.classList.remove('danger');
     logToConsole('Danger State deactivated.', 'system');
     if (isAudioActive && spaceHumFilter) {
-      spaceHumFilter.frequency.setValueAtTime(180, audioCtx.currentTime);
-      spaceHumFilter.Q.setValueAtTime(1.5, audioCtx.currentTime);
+      spaceHumFilter.frequency.setValueAtTime(350, audioCtx.currentTime);
+      spaceHumFilter.Q.setValueAtTime(4.0, audioCtx.currentTime);
     }
   }
 });
